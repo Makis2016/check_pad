@@ -375,6 +375,30 @@ export default class Request {
     }
 
     /**
+     * 设备历史数据
+     *
+     * @param {*} eqpCod 设备号
+     * @returns
+     * @memberof Request
+     */
+    async getEqpHisIspDetail(eqpCod){
+        const protocol = {
+            SERVICETYPE: 'getEqpHisIspDetail',
+            EQP_COD: eqpCod
+        };
+
+        const response = await this._request(protocol);
+        if (response.code !== 0) {
+            return {
+                code: response.code,
+                message: response.message,
+            };
+        }
+
+        return response;
+    }
+
+    /**
      * 请求
      *
      * @param {*} data 参数

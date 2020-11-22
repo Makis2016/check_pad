@@ -189,6 +189,20 @@ const visibleFields = [
     { vmodel: 'FIRST_UPLOAD_DATE', label: '首次下载时间', type: 'checkbox' },
 ];
 
+const historyDataColumns = [
+    { name: 'EQP_COD', title: '设备号', visible: true,width:150 },
+    { name: 'REP_NAME', title: '报告名称', visible: true,width:200 },
+    { name: 'CURR_NODE_NAME', title: '当前节点', visible: true,width:100 },
+    { name: 'USE_UNT_NAME', title: '使用单位', visible: true,width:220 },
+    { name: 'ISP_DEPT_NAME', title: '检验部门', visible: true,width:200 },
+    { name: 'ISP_USER_NAME', title: '检验人员', visible: true,width:200 },
+    { name: 'ISP_DATE', title: '检验日期', visible: true,width:200 },
+    { name: 'ISP_CONCLU', title: '检验结论', visible: true,width:200 },
+    { name: 'REP_PRNT_DATE', title: '打印日期', visible: true,width:200 },
+    { name: 'OPE_TYPE_NAME', title: '操作类型', visible: true,width:200 },
+    { name: 'FACTORY_COD', title: '出厂编号', visible: true,width:200 },
+];
+
 /**
  * 检验任务视图
  *
@@ -247,6 +261,8 @@ export default class TaskView extends BaseView {
             }),
             progressVisible: false,
             percent: 0,
+            historyVisible: false,
+            historyData: [],
         };
 
         this.toolBars = [
@@ -418,22 +434,8 @@ export default class TaskView extends BaseView {
                 iconName: 'reload',
                 text: '设备概况',
                 onClick: () => {
-                    let searchParams = {
-                        SERVICETYPE: 'getFlowNode',
-                        DEPT_ID: '14',
-                        EQP_TYPE: '3000',
-                        REP_TYPE: '300010',
-                        ISP_ID: '1593314',
-                        SUB_ISPID: '',
-                        OPE_TYPE: '2',
-                        CURR_NODE: '101',
-                        ISP_TYPE: '1',
-                        MAIN_FLAG: '1',
-                        ISP_CONCLU: '合格',
-                        IFCAN_REISP: '1',
-                    };
-                    new Request().getFlowNode(searchParams);
                     console.debug('设备概况');
+                    this._deviceInfo();
                 },
             },
             {
@@ -441,6 +443,7 @@ export default class TaskView extends BaseView {
                 text: '历史检验信息',
                 onClick: () => {
                     console.debug('历史检验信息');
+                    this._getEqpHisIspDetail();
                 },
             },
             {
@@ -1023,12 +1026,30 @@ export default class TaskView extends BaseView {
                         </View>
                     </Drawer>
                     <Modal title="上传中" transparent visible={this.state.progressVisible}>
-                            <View style={{ marginTop: 40,  justifyContent: 'space-between', alignItems: 'center' }}>
-                                <View style={{ marginBottom: 10, height: 4, flex: 1 }}>
-                                    <Progress  percent={this.state.percent} />
-                                </View>
-                                <Text>{this.state.percent}%</Text>
+                        <View style={{ marginTop: 40, justifyContent: 'space-between', alignItems: 'center' }}>
+                            <View style={{ marginBottom: 10, height: 4, flex: 1 }}>
+                                <Progress percent={this.state.percent} />
                             </View>
+                            <Text>{this.state.percent}%</Text>
+                        </View>
+                    </Modal>
+                    <Modal
+                        style={{ width: 500 }}
+                        title="历史信息"
+                        closable
+                        transparent
+                        visible={this.state.historyVisible}
+                        onClose={() => {
+                            this.setState({
+                                historyVisible: false,
+                            });
+                        }}
+                    >
+                        <View style={{ alignItems: 'center' }}>
+                            <View style={{ zIndex: 400, width: '100%', height: 400 }}>
+                                <DataTableEx header={historyDataColumns} data={this.state.historyData} />
+                            </View>
+                        </View>
                     </Modal>
                 </View>
             </Provider>
@@ -1212,16 +1233,51 @@ export default class TaskView extends BaseView {
             for (i in data) {
                 const info = JSON.parse(data[i]);
                 if (info.ErrorCode === 1) {
-                    Modal.alert('消息提示', `任务ID:${info.ISP_ID} ${info.ErrorDescriptor}`, [
-                        { text: '确认'},
-                      ]);
+                    Modal.alert('消息提示', `任务ID:${info.ISP_ID} ${info.ErrorDescriptor}`, [{ text: '确认' }]);
                     return;
                 }
             }
-            Modal.alert('消息提示', `上传成功！`, [
-                { text: '确认'},
-              ]);
+            Modal.alert('消息提示', `上传成功！`, [{ text: '确认' }]);
         }
+    }
+
+    /**
+     * 设备概况
+     */
+    _deviceInfo() {
+        const rowData = this._getSelectRow();
+        if (!rowData) {
+            this._showHint('请选中一条任务!');
+            return;
+        }
+        if (rowData.REPORT_COD === '') {
+            this._showHint('该任务无报告号!');
+            return;
+        }
+        this.props.navigation.navigate('Device', { reportCode: rowData.REPORT_COD });
+    }
+
+    /**
+     * 设备历史数据
+     *
+     * @memberof TaskView
+     */
+    async _getEqpHisIspDetail() {
+        const rowData = this._getSelectRow();
+        if (!rowData) {
+            this._showHint('请选中一条任务!');
+            return;
+        }
+
+        const response = await new Request().getEqpHisIspDetail(rowData.EQP_COD);
+        console.log('_getEqpHisIspDetail', response);
+        if (response.code !== 0) {
+            this._showHint(response.message);
+            return;
+        }
+
+        const historyData = JSON.parse(response.data.D_RETURN_MSG);
+        this.setState({ historyData, historyVisible: true });
     }
 }
 
